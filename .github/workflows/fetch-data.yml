@@ -33,27 +33,22 @@ jobs:
             });
             const text = await res.text();
             console.log('HTTP', res.status, url.slice(0, 80));
-            console.log('BODY:', text.slice(0, 500));
             if (!res.ok) return null;
             return JSON.parse(text);
           }
 
           function parse(json) {
-            const results = json?.spark?.result ?? [];
             const stocks = [];
-            for (const item of results) {
-              if (!item?.response?.[0]) continue;
-              const symbol = item.symbol;
-              const resp = item.response[0];
-              const timestamps = resp.timestamp ?? [];
-              const quotes = resp.indicators?.quote?.[0] ?? {};
-              const closes = quotes.close ?? [];
-              const volumes = quotes.volume ?? [];
+            for (const [symbol, data] of Object.entries(json)) {
+              if (!data?.timestamp || !data?.close) continue;
+              const timestamps = data.timestamp;
+              const closes = data.close;
+              const volumes = data.volume ?? [];
               const days = [];
               for (let i = 0; i < timestamps.length; i++) {
-                if (closes[i] == null || volumes[i] == null) continue;
+                if (closes[i] == null) continue;
                 const date = new Date(timestamps[i] * 1000).toISOString().slice(0, 10);
-                days.push({ date, close: closes[i], volume: volumes[i] });
+                days.push({ date, close: closes[i], volume: volumes[i] ?? 0 });
               }
               if (days.length > 0) stocks.push({ symbol, days });
             }
