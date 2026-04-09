@@ -1,16 +1,13 @@
-const YAHOO_SPARK = 'https://query1.finance.yahoo.com/v8/finance/spark';
-const CORS_PROXY = 'https://api.allorigins.win/raw?url=';
+const YAHOO_SPARK = 'https://query2.finance.yahoo.com/v8/finance/spark';
 const BATCH_SIZE = 20; // spark endpoint max symbols per request
 
 /**
- * Build the proxied Yahoo Finance spark URL for a batch of symbols (max 20).
- * The full Yahoo URL is encoded so allorigins passes it through correctly.
+ * Build the Yahoo Finance spark URL for a batch of symbols (max 20).
  * @param {string[]} symbols
  * @returns {string}
  */
 function buildSparkUrl(symbols) {
-  const yahooUrl = `${YAHOO_SPARK}?symbols=${symbols.join(',')}&range=7d&interval=1d`;
-  return `${CORS_PROXY}${encodeURIComponent(yahooUrl)}`;
+  return `${YAHOO_SPARK}?symbols=${symbols.join(',')}&range=7d&interval=1d`;
 }
 
 /**
