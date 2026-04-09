@@ -8,7 +8,7 @@
 </head>
 <body>
   <h1>TASE Stock Tracker</h1>
-  <p class="subtitle">Stocks with rising price and increasing volume on the Tel Aviv Stock Exchange</p>
+  <p class="subtitle">Tel Aviv Stock Exchange · sorted by average volume change</p>
 
   <div class="controls">
     <label for="window-select">Window:</label>
@@ -17,6 +17,10 @@
       <option value="4">4 days</option>
       <option value="5">5 days</option>
     </select>
+
+    <label for="min-volume">Min. Volume:</label>
+    <input id="min-volume" type="text" value="200,000" />
+
     <span class="badge" id="count">—</span>
     <span class="status" id="status"></span>
   </div>

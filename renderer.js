@@ -10,50 +10,67 @@ function fmtVolume(v) {
 }
 
 /**
- * Build a mini vertical bar sparkline for the volume days in the window.
- * @param {Array<{volume: number}>} windowDays
- * @returns {string} HTML string
+ * Build an inline SVG line chart from an array of numbers.
+ * @param {number[]} values
+ * @param {string} stroke  CSS color
+ * @returns {string} SVG HTML string
  */
-function volumeSparkline(windowDays) {
-  const max = Math.max(...windowDays.map(d => d.volume), 1);
-  const bars = windowDays.map(d => {
-    const pct = Math.round((d.volume / max) * 100);
-    return `<div class="spark-bar" style="height:${pct}%"></div>`;
-  }).join('');
-  return `<div class="sparkline">${bars}</div>`;
+function lineChart(values, stroke) {
+  if (values.length < 2) return '';
+  const W = 90, H = 32;
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const range = max - min || 1;
+  const points = values.map((v, i) => {
+    const x = (i / (values.length - 1)) * W;
+    const y = H - 2 - ((v - min) / range) * (H - 4);
+    return `${x.toFixed(1)},${y.toFixed(1)}`;
+  }).join(' ');
+  return `<svg width="${W}" height="${H}" class="linechart" viewBox="0 0 ${W} ${H}">
+    <polyline points="${points}" fill="none" stroke="${stroke}" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/>
+  </svg>`;
 }
 
 /**
  * Render sorted stocks into the given DOM container.
- * Replaces any previous content.
  *
- * @param {Array<{symbol: string, avgVolChangePct: number, avgPriceChangePct: number, days: Array<{close: number, volume: number}>}>} stocks
+ * @param {Array<{symbol: string, avgVolChangePct: number, avgPriceChangePct: number, days: Array<{date: string, close: number, volume: number}>}>} stocks
  * @param {HTMLElement} container
  */
 function render(stocks, container) {
   if (stocks.length === 0) {
-    container.innerHTML = '<p class="empty">No data available for this window.</p>';
+    container.innerHTML = '<p class="empty">No stocks match the current filters.</p>';
     return;
   }
 
   const rows = stocks.map(stock => {
-    const latest = stock.days[stock.days.length - 1];
-    const windowDays = stock.days.slice(-(stock.days.length)); // all available days
+    const latest      = stock.days[stock.days.length - 1];
+    const prevDay     = stock.days[stock.days.length - 2];
+    const lastDayChg  = prevDay && prevDay.close > 0
+      ? ((latest.close - prevDay.close) / prevDay.close * 100)
+      : 0;
+    const chgSign     = lastDayChg >= 0 ? '+' : '';
+    const chgClass    = lastDayChg >= 0 ? 'positive' : 'negative';
+    const volClass    = stock.avgVolChangePct >= 0 ? 'positive' : 'negative';
+    const volSign     = stock.avgVolChangePct >= 0 ? '+' : '';
     const displaySymbol = stock.symbol.replace(/\.TA$/i, '');
-    const priceClass = stock.avgPriceChangePct >= 0 ? 'positive' : 'negative';
-    const volClass   = stock.avgVolChangePct   >= 0 ? 'positive' : 'negative';
-    const priceSign  = stock.avgPriceChangePct >= 0 ? '+' : '';
-    const volSign    = stock.avgVolChangePct   >= 0 ? '+' : '';
+
+    const priceChart  = lineChart(stock.days.map(d => d.close), lastDayChg >= 0 ? '#4ade80' : '#f87171');
+    const volumeChart = lineChart(stock.days.map(d => d.volume), '#3b82f6');
 
     return `
       <tr>
         <td><strong>${displaySymbol}</strong></td>
-        <td>${latest.close.toFixed(2)}</td>
-        <td class="${priceClass}">${priceSign}${stock.avgPriceChangePct.toFixed(2)}%</td>
         <td>
-          <div class="vol-cell">
-            ${volumeSparkline(windowDays)}
-            <span class="vol-latest">${fmtVolume(latest.volume)}</span>
+          <div class="chart-cell">
+            ${priceChart}
+            <span class="${chgClass}">${chgSign}${lastDayChg.toFixed(2)}%</span>
+          </div>
+        </td>
+        <td>
+          <div class="chart-cell">
+            ${volumeChart}
+            <span class="muted">${fmtVolume(latest.volume)}</span>
           </div>
         </td>
         <td class="${volClass}">${volSign}${stock.avgVolChangePct.toFixed(2)}%</td>
@@ -65,9 +82,8 @@ function render(stocks, container) {
       <thead>
         <tr>
           <th>Symbol</th>
-          <th>Last Close (ILS)</th>
-          <th>Avg Price Δ%</th>
-          <th>Volume</th>
+          <th>Price · Last Day Δ</th>
+          <th>Volume (10d)</th>
           <th>Avg Vol Δ% ↓</th>
         </tr>
       </thead>

@@ -66,30 +66,31 @@ tr:hover td { background: #141920; }
 
 .positive { color: #4ade80; }
 .negative { color: #f87171; }
+.muted    { font-size: 0.8rem; color: #64748b; white-space: nowrap; }
 
-.vol-cell {
+.controls input[type="text"] {
+  background: #1e2533;
+  color: #e2e8f0;
+  border: 1px solid #334155;
+  border-radius: 6px;
+  padding: 5px 10px;
+  font-size: 0.85rem;
+  width: 100px;
+  text-align: right;
+}
+
+.controls input[type="text"]:focus {
+  outline: none;
+  border-color: #3b82f6;
+}
+
+.chart-cell {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
 }
 
-.sparkline {
-  display: flex;
-  align-items: flex-end;
-  gap: 2px;
-  height: 28px;
-  width: 80px;
-  flex-shrink: 0;
-}
-
-.spark-bar {
-  flex: 1;
-  background: #3b82f6;
-  border-radius: 2px 2px 0 0;
-  min-height: 2px;
-}
-
-.vol-latest { font-size: 0.82rem; color: #94a3b8; white-space: nowrap; }
+.linechart { display: block; flex-shrink: 0; }
 
 .empty {
   color: #64748b;
