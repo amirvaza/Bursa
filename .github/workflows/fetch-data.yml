@@ -21,48 +21,38 @@ jobs:
           node -e "
           const fs = require('fs');
 
-          const BATCH_SIZE = 20;
           const symbols = JSON.parse(fs.readFileSync('stocks.json', 'utf8')).symbols;
 
-          async function get(url) {
-            const res = await fetch(url, {
-              headers: {
-                'User-Agent': 'Mozilla/5.0 (compatible; Googlebot/2.1)',
-                'Accept': 'application/json',
-              }
-            });
-            const text = await res.text();
-            console.log('HTTP', res.status, url.slice(0, 80));
-            if (!res.ok) return null;
-            return JSON.parse(text);
-          }
-
-          function parse(json) {
-            const stocks = [];
-            for (const [symbol, data] of Object.entries(json)) {
-              if (!data?.timestamp || !data?.close) continue;
-              const timestamps = data.timestamp;
-              const closes = data.close;
-              const volumes = data.volume ?? [];
+          async function fetchSymbol(symbol) {
+            const url = 'https://query1.finance.yahoo.com/v8/finance/chart/' + symbol + '?range=10d&interval=1d';
+            try {
+              const res = await fetch(url, {
+                headers: { 'User-Agent': 'Mozilla/5.0', 'Accept': 'application/json' }
+              });
+              if (!res.ok) { console.log('SKIP', symbol, res.status); return null; }
+              const json = await res.json();
+              const result = json?.chart?.result?.[0];
+              if (!result) return null;
+              const timestamps = result.timestamp ?? [];
+              const quote = result.indicators?.quote?.[0] ?? {};
+              const closes = quote.close ?? [];
+              const volumes = quote.volume ?? [];
               const days = [];
               for (let i = 0; i < timestamps.length; i++) {
-                if (closes[i] == null) continue;
+                if (closes[i] == null || volumes[i] == null) continue;
                 const date = new Date(timestamps[i] * 1000).toISOString().slice(0, 10);
-                days.push({ date, close: closes[i], volume: volumes[i] ?? 0 });
+                days.push({ date, close: closes[i], volume: volumes[i] });
               }
-              if (days.length > 0) stocks.push({ symbol, days });
+              return days.length > 0 ? { symbol, days } : null;
+            } catch (e) {
+              console.log('SKIP', symbol, e.message);
+              return null;
             }
-            return stocks;
           }
 
           async function main() {
-            const all = [];
-            for (let i = 0; i < symbols.length; i += BATCH_SIZE) {
-              const batch = symbols.slice(i, i + BATCH_SIZE);
-              const url = 'https://query1.finance.yahoo.com/v8/finance/spark?symbols=' + batch.join(',') + '&range=10d&interval=1d';
-              const json = await get(url);
-              if (json) all.push(...parse(json));
-            }
+            const results = await Promise.all(symbols.map(fetchSymbol));
+            const all = results.filter(Boolean);
             fs.mkdirSync('data', { recursive: true });
             fs.writeFileSync('data/latest.json', JSON.stringify({
               fetched_at: new Date().toISOString(),
