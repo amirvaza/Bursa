@@ -33,7 +33,8 @@ jobs:
             });
             const text = await res.text();
             console.log('HTTP', res.status, url.slice(0, 80));
-            if (!res.ok) { console.error('Response:', text.slice(0, 200)); return null; }
+            console.log('BODY:', text.slice(0, 500));
+            if (!res.ok) return null;
             return JSON.parse(text);
           }
 
