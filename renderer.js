@@ -10,41 +10,53 @@ function fmtVolume(v) {
 }
 
 /**
- * Render filtered stocks into the given DOM container.
+ * Build a mini vertical bar sparkline for the volume days in the window.
+ * @param {Array<{volume: number}>} windowDays
+ * @returns {string} HTML string
+ */
+function volumeSparkline(windowDays) {
+  const max = Math.max(...windowDays.map(d => d.volume), 1);
+  const bars = windowDays.map(d => {
+    const pct = Math.round((d.volume / max) * 100);
+    return `<div class="spark-bar" style="height:${pct}%"></div>`;
+  }).join('');
+  return `<div class="sparkline">${bars}</div>`;
+}
+
+/**
+ * Render sorted stocks into the given DOM container.
  * Replaces any previous content.
  *
- * @param {Array<{symbol: string, avgChangePct: number, days: Array<{close: number, volume: number}>}>} stocks
+ * @param {Array<{symbol: string, avgVolChangePct: number, avgPriceChangePct: number, days: Array<{close: number, volume: number}>}>} stocks
  * @param {HTMLElement} container
  */
 function render(stocks, container) {
   if (stocks.length === 0) {
-    container.innerHTML = '<p class="empty">No stocks matched the filter for this window.</p>';
+    container.innerHTML = '<p class="empty">No data available for this window.</p>';
     return;
   }
 
-  const maxVolume = Math.max(...stocks.map(s => s.days[s.days.length - 1].volume), 1);
-
   const rows = stocks.map(stock => {
     const latest = stock.days[stock.days.length - 1];
-    const first  = stock.days[0];
-    const volGrowthPct = first.volume > 0
-      ? Math.round(((latest.volume - first.volume) / first.volume) * 100)
-      : 0;
-    const barPct = Math.round((latest.volume / maxVolume) * 100);
+    const windowDays = stock.days.slice(-(stock.days.length)); // all available days
     const displaySymbol = stock.symbol.replace(/\.TA$/i, '');
+    const priceClass = stock.avgPriceChangePct >= 0 ? 'positive' : 'negative';
+    const volClass   = stock.avgVolChangePct   >= 0 ? 'positive' : 'negative';
+    const priceSign  = stock.avgPriceChangePct >= 0 ? '+' : '';
+    const volSign    = stock.avgVolChangePct   >= 0 ? '+' : '';
 
     return `
       <tr>
         <td><strong>${displaySymbol}</strong></td>
         <td>${latest.close.toFixed(2)}</td>
-        <td class="positive">+${stock.avgChangePct.toFixed(2)}%</td>
+        <td class="${priceClass}">${priceSign}${stock.avgPriceChangePct.toFixed(2)}%</td>
         <td>
           <div class="vol-cell">
-            <span>${fmtVolume(latest.volume)}</span>
-            <div class="bar-track"><div class="bar-fill" style="width:${barPct}%"></div></div>
-            <span class="vol-growth">+${volGrowthPct}%</span>
+            ${volumeSparkline(windowDays)}
+            <span class="vol-latest">${fmtVolume(latest.volume)}</span>
           </div>
         </td>
+        <td class="${volClass}">${volSign}${stock.avgVolChangePct.toFixed(2)}%</td>
       </tr>`;
   }).join('');
 
@@ -54,8 +66,9 @@ function render(stocks, container) {
         <tr>
           <th>Symbol</th>
           <th>Last Close (ILS)</th>
-          <th>Avg Δ% (window)</th>
-          <th>Volume (latest · trend)</th>
+          <th>Avg Price Δ%</th>
+          <th>Volume</th>
+          <th>Avg Vol Δ% ↓</th>
         </tr>
       </thead>
       <tbody>${rows}</tbody>
