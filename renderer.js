@@ -37,7 +37,7 @@ function lineChart(values, stroke) {
  * @param {Array<{symbol: string, avgVolChangePct: number, avgPriceChangePct: number, days: Array<{date: string, close: number, volume: number}>}>} stocks
  * @param {HTMLElement} container
  */
-function render(stocks, container) {
+function render(stocks, container, volHeader = 'Volume (60d)') {
   if (stocks.length === 0) {
     container.innerHTML = '<p class="empty">No stocks match the current filters.</p>';
     return;
@@ -83,7 +83,7 @@ function render(stocks, container) {
         <tr>
           <th>Symbol</th>
           <th>Price · Last Day Δ</th>
-          <th>Volume (10d)</th>
+          <th>${volHeader}</th>
           <th>Avg Vol Δ% ↓</th>
         </tr>
       </thead>

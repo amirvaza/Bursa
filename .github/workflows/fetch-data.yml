@@ -26,7 +26,7 @@ jobs:
           const symbols = JSON.parse(fs.readFileSync('stocks.json', 'utf8')).symbols;
 
           async function fetchSymbol(symbol) {
-            const url = 'https://query1.finance.yahoo.com/v8/finance/chart/' + symbol + '?range=10d&interval=1d';
+            const url = 'https://query1.finance.yahoo.com/v8/finance/chart/' + symbol + '?range=60d&interval=1d';
             try {
               const res = await fetch(url, {
                 headers: { 'User-Agent': 'Mozilla/5.0', 'Accept': 'application/json' }
