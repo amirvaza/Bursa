@@ -19,20 +19,22 @@ jobs:
       - name: Fetch TASE market data from Yahoo Finance
         run: |
           node -e "
-          const https = require('https');
           const fs = require('fs');
 
           const BATCH_SIZE = 20;
           const symbols = JSON.parse(fs.readFileSync('stocks.json', 'utf8')).symbols;
 
-          function get(url) {
-            return new Promise((resolve, reject) => {
-              https.get(url, { headers: { 'User-Agent': 'Mozilla/5.0' } }, res => {
-                let d = '';
-                res.on('data', c => d += c);
-                res.on('end', () => resolve(JSON.parse(d)));
-              }).on('error', reject);
+          async function get(url) {
+            const res = await fetch(url, {
+              headers: {
+                'User-Agent': 'Mozilla/5.0 (compatible; Googlebot/2.1)',
+                'Accept': 'application/json',
+              }
             });
+            const text = await res.text();
+            console.log('HTTP', res.status, url.slice(0, 80));
+            if (!res.ok) { console.error('Response:', text.slice(0, 200)); return null; }
+            return JSON.parse(text);
           }
 
           function parse(json) {
@@ -63,7 +65,7 @@ jobs:
               const batch = symbols.slice(i, i + BATCH_SIZE);
               const url = 'https://query1.finance.yahoo.com/v8/finance/spark?symbols=' + batch.join(',') + '&range=10d&interval=1d';
               const json = await get(url);
-              all.push(...parse(json));
+              if (json) all.push(...parse(json));
             }
             fs.mkdirSync('data', { recursive: true });
             fs.writeFileSync('data/latest.json', JSON.stringify({
