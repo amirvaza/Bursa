@@ -73,35 +73,22 @@ function lineChart(values, stroke) {
  * @param {HTMLElement} container
  * @param {string} volHeader
  */
-function render(stocks, container, volHeader = 'Volume (60d)') {
+function render(stocks, container, volHeader = 'Volume (60d)', sortState = { col: 'avgVolChangePct', dir: 'desc' }) {
   if (stocks.length === 0) {
     container.innerHTML = '<p class="empty">No stocks match the current filters.</p>';
     return;
   }
 
   const rows = stocks.map(stock => {
-    const latest  = stock.days[stock.days.length - 1];
-    const first   = stock.days[0];
+    const latest = stock.days[stock.days.length - 1];
 
-    // Weekly change: Mon → Thu of most recent week
-    const weeklyChg = getWeeklyChange(stock.days);
-    const weekly    = fmtPct(weeklyChg);
+    const weekly  = fmtPct(stock.weeklyChg);
+    const total   = fmtPct(stock.totalChg);
+    const volChg  = fmtPct(stock.avgVolChangePct);
 
-    // Total change: first available day → latest day
-    const totalChgVal = first.close > 0
-      ? ((latest.close - first.close) / first.close * 100)
-      : null;
-    const total = fmtPct(totalChgVal);
-
-    // Avg vol change
-    const volChg = fmtPct(stock.avgVolChangePct);
-
-    // Chart color driven by weekly change
-    const chartColor = weeklyChg === null ? '#64748b' : weeklyChg >= 0 ? '#4ade80' : '#f87171';
-
+    const chartColor  = stock.weeklyChg === null ? '#64748b' : stock.weeklyChg >= 0 ? '#4ade80' : '#f87171';
     const priceChart  = lineChart(stock.days.map(d => d.close),  chartColor);
     const volumeChart = lineChart(stock.days.map(d => d.volume), '#3b82f6');
-
     const displaySymbol = stock.symbol.replace(/\.TA$/i, '');
 
     return `
@@ -124,20 +111,28 @@ function render(stocks, container, volHeader = 'Volume (60d)') {
       </tr>`;
   }).join('');
 
+  const cols = [
+    { key: 'symbol',          label: 'Symbol' },
+    { key: 'weeklyChg',       label: 'Price · Weekly (Mon→Thu)' },
+    { key: 'totalChg',        label: 'Total Δ%' },
+    { key: 'latestVolume',    label: volHeader },
+    { key: 'avgVolChangePct', label: 'Avg Vol Δ%' },
+  ];
+
+  const headers = cols.map(({ key, label }) => {
+    const active = sortState.col === key;
+    const arrow  = active ? (sortState.dir === 'desc' ? ' ↓' : ' ↑') : '';
+    const cls    = active ? ' class="th-active"' : '';
+    return `<th${cls} onclick="onSortClick('${key}')" style="cursor:pointer">${label}${arrow}</th>`;
+  }).join('');
+
   container.innerHTML = `
     <table>
-      <thead>
-        <tr>
-          <th>Symbol</th>
-          <th>Price · Weekly (Mon→Thu)</th>
-          <th>Total Δ%</th>
-          <th>${volHeader}</th>
-          <th>Avg Vol Δ% ↓</th>
-        </tr>
-      </thead>
+      <thead><tr>${headers}</tr></thead>
       <tbody>${rows}</tbody>
     </table>`;
 }
 
-// Expose as global for <script> tag usage in index.html
+// Expose as globals for <script> tag usage in index.html
 window.render = render;
+window.getWeeklyChange = getWeeklyChange;
