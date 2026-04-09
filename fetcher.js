@@ -1,8 +1,8 @@
 const BASE_URL = 'https://query1.finance.yahoo.com/v8/finance/spark';
+const BATCH_SIZE = 20; // spark endpoint max symbols per request
 
 /**
- * Build the Yahoo Finance spark URL for the given symbols.
- * Always fetches 7d so we have enough days even accounting for weekends/holidays.
+ * Build the Yahoo Finance spark URL for a batch of symbols (max 20).
  * @param {string[]} symbols
  * @returns {string}
  */
@@ -49,23 +49,26 @@ function parseSparkResponse(json) {
 }
 
 /**
- * Fetch OHLCV data for all symbols from Yahoo Finance spark endpoint.
- * Returns StockData[] or throws on network/CORS failure.
- *
- * CORS FALLBACK: If Yahoo blocks browser requests, replace BASE_URL with:
- *   const BASE_URL = 'https://corsproxy.io/?url=https://query1.finance.yahoo.com/v8/finance/spark';
+ * Fetch OHLCV data for all symbols, batching into groups of 20 (spark endpoint limit).
+ * Batches run in parallel. Returns merged StockData[].
  *
  * @param {string[]} symbols
  * @returns {Promise<Array<{symbol: string, days: Array<{date: string, close: number, volume: number}>}>>}
  */
 async function fetchMarket(symbols) {
-  const url = buildSparkUrl(symbols);
-  const response = await fetch(url);
-  if (!response.ok) {
-    throw new Error(`Yahoo Finance returned ${response.status}`);
+  const batches = [];
+  for (let i = 0; i < symbols.length; i += BATCH_SIZE) {
+    batches.push(symbols.slice(i, i + BATCH_SIZE));
   }
-  const json = await response.json();
-  return parseSparkResponse(json);
+
+  const results = await Promise.all(batches.map(async batch => {
+    const response = await fetch(buildSparkUrl(batch));
+    if (!response.ok) throw new Error(`Yahoo Finance returned ${response.status}`);
+    const json = await response.json();
+    return parseSparkResponse(json);
+  }));
+
+  return results.flat();
 }
 
 // Expose as globals for <script> tag usage in index.html
