@@ -25,30 +25,18 @@
     location.href = url.toString();
   });
 
-  statusEl.textContent = 'Loading symbols...';
+  statusEl.textContent = 'Loading market data...';
 
-  let symbols;
+  let stocks;
   try {
-    const res = await fetch('stocks.json');
-    const config = await res.json();
-    symbols = config.symbols;
+    stocks = await fetchMarket();
   } catch (e) {
     statusEl.className = 'status error';
-    statusEl.textContent = 'Failed to load stocks.json';
+    statusEl.textContent = e.message;
     return;
   }
 
   const windowDays = getWindow();
-  statusEl.textContent = `Fetching ${symbols.length} stocks from Yahoo Finance...`;
-
-  let stocks;
-  try {
-    stocks = await fetchMarket(symbols);
-  } catch (e) {
-    statusEl.className = 'status error';
-    statusEl.textContent = `Yahoo Finance error: ${e.message}. Try refreshing.`;
-    return;
-  }
 
   const filtered = filterStocks(stocks, windowDays);
 

@@ -1,0 +1,83 @@
+name: Fetch Market Data
+
+on:
+  schedule:
+    - cron: '30 16 * * 1-5'  # 16:30 UTC = 18:30 Israel time, 1h after TASE closes
+  workflow_dispatch:          # allow manual trigger from GitHub Actions tab
+
+permissions:
+  contents: write
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Fetch TASE market data from Yahoo Finance
+        run: |
+          node -e "
+          const https = require('https');
+          const fs = require('fs');
+
+          const BATCH_SIZE = 20;
+          const symbols = JSON.parse(fs.readFileSync('stocks.json', 'utf8')).symbols;
+
+          function get(url) {
+            return new Promise((resolve, reject) => {
+              https.get(url, { headers: { 'User-Agent': 'Mozilla/5.0' } }, res => {
+                let d = '';
+                res.on('data', c => d += c);
+                res.on('end', () => resolve(JSON.parse(d)));
+              }).on('error', reject);
+            });
+          }
+
+          function parse(json) {
+            const results = json?.spark?.result ?? [];
+            const stocks = [];
+            for (const item of results) {
+              if (!item?.response?.[0]) continue;
+              const symbol = item.symbol;
+              const resp = item.response[0];
+              const timestamps = resp.timestamp ?? [];
+              const quotes = resp.indicators?.quote?.[0] ?? {};
+              const closes = quotes.close ?? [];
+              const volumes = quotes.volume ?? [];
+              const days = [];
+              for (let i = 0; i < timestamps.length; i++) {
+                if (closes[i] == null || volumes[i] == null) continue;
+                const date = new Date(timestamps[i] * 1000).toISOString().slice(0, 10);
+                days.push({ date, close: closes[i], volume: volumes[i] });
+              }
+              if (days.length > 0) stocks.push({ symbol, days });
+            }
+            return stocks;
+          }
+
+          async function main() {
+            const all = [];
+            for (let i = 0; i < symbols.length; i += BATCH_SIZE) {
+              const batch = symbols.slice(i, i + BATCH_SIZE);
+              const url = 'https://query1.finance.yahoo.com/v8/finance/spark?symbols=' + batch.join(',') + '&range=10d&interval=1d';
+              const json = await get(url);
+              all.push(...parse(json));
+            }
+            fs.mkdirSync('data', { recursive: true });
+            fs.writeFileSync('data/latest.json', JSON.stringify({
+              fetched_at: new Date().toISOString(),
+              stocks: all
+            }));
+            console.log('Wrote ' + all.length + ' stocks to data/latest.json');
+          }
+
+          main().catch(e => { console.error(e); process.exit(1); });
+          "
+
+      - name: Commit and push data
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/latest.json
+          git diff --staged --quiet || git commit -m "data: market snapshot $(date -u +%Y-%m-%d)"
+          git push
