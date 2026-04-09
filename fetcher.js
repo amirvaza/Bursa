@@ -7,8 +7,7 @@ const BASE_URL = 'https://query1.finance.yahoo.com/v8/finance/spark';
  * @returns {string}
  */
 function buildSparkUrl(symbols) {
-  const encoded = encodeURIComponent(symbols.join(','));
-  return `${BASE_URL}?symbols=${encoded}&range=7d&interval=1d`;
+  return `${BASE_URL}?symbols=${symbols.join(',')}&range=7d&interval=1d`;
 }
 
 /**
