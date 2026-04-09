@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TASE Stock Tracker</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <h1>TASE Stock Tracker</h1>
+  <p class="subtitle">Stocks with rising price and increasing volume on the Tel Aviv Stock Exchange</p>
+
+  <div class="controls">
+    <label for="window-select">Window:</label>
+    <select id="window-select">
+      <option value="3">3 days</option>
+      <option value="4">4 days</option>
+      <option value="5">5 days</option>
+    </select>
+    <span class="badge" id="count">—</span>
+    <span class="status" id="status"></span>
+  </div>
+
+  <div id="results"></div>
+
+  <script src="fetcher.js"></script>
+  <script src="filter.js"></script>
+  <script src="renderer.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
