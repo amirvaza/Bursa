@@ -64,14 +64,15 @@ async function fetchMarket(symbols) {
     batches.push(symbols.slice(i, i + BATCH_SIZE));
   }
 
-  const results = await Promise.all(batches.map(async batch => {
+  const results = [];
+  for (const batch of batches) {
     const response = await fetch(buildSparkUrl(batch));
     if (!response.ok) throw new Error(`Yahoo Finance returned ${response.status}`);
     const json = await response.json();
-    return parseSparkResponse(json);
-  }));
+    results.push(...parseSparkResponse(json));
+  }
 
-  return results.flat();
+  return results;
 }
 
 // Expose as globals for <script> tag usage in index.html
