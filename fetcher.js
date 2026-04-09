@@ -1,4 +1,4 @@
-const BASE_URL = 'https://query1.finance.yahoo.com/v8/finance/spark';
+const BASE_URL = 'https://corsproxy.io/?url=https://query1.finance.yahoo.com/v8/finance/spark';
 const BATCH_SIZE = 20; // spark endpoint max symbols per request
 
 /**
