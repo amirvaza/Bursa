@@ -2,7 +2,7 @@
 // Depends on globals: fetchMarket (fetcher.js), filterStocks (filter.js), render, getWeeklyChange (renderer.js)
 
 let allStocks  = [];
-let sortState  = { col: 'avgVolChangePct', dir: 'desc' };
+let sortState  = { col: 'volChg0', dir: 'desc' };
 
 function parseMinVolume() {
   const raw = document.getElementById('min-volume').value.replace(/,/g, '');
@@ -19,15 +19,31 @@ function toThursdays(days) {
   return days.filter(d => new Date(d.date + 'T00:00:00Z').getUTCDay() === 4);
 }
 
+// Compute up to 5 day-over-day volume changes, most recent first
+// Returns array of { date, pct } objects (pct may be null)
+function computeVolChanges(days) {
+  const result = [];
+  for (let i = days.length - 1; i >= 1 && result.length < 5; i--) {
+    const cur  = days[i];
+    const prev = days[i - 1];
+    const pct  = prev.volume > 0 ? ((cur.volume - prev.volume) / prev.volume * 100) : null;
+    result.push({ date: cur.date, pct });
+  }
+  return result;
+}
+
 // Enrich each stock with pre-computed sort keys
 function enrich(stock) {
   const first  = stock.days[0];
   const latest = stock.days[stock.days.length - 1];
-  const weeklyChg = getWeeklyChange(stock.days);
-  const totalChg  = first && first.close > 0
+  const weeklyChg  = getWeeklyChange(stock.days);
+  const totalChg   = first && first.close > 0
     ? ((latest.close - first.close) / first.close * 100)
     : null;
-  return { ...stock, weeklyChg, totalChg, latestVolume: latest.volume };
+  const volChanges = computeVolChanges(stock.days);
+  const extra = {};
+  volChanges.forEach((v, i) => { extra[`volChg${i}`] = v.pct; });
+  return { ...stock, weeklyChg, totalChg, latestVolume: latest.volume, volChanges, ...extra };
 }
 
 function sortBy(stocks) {
@@ -42,12 +58,10 @@ function sortBy(stocks) {
 }
 
 function applyAndRender() {
-  const windowDays = parseInt(document.getElementById('window-select').value, 10);
   const minVol     = parseMinVolume();
   const weekly     = document.getElementById('view-select').value === 'weekly';
 
-  // Sort by avg vol change, then enrich with all metrics
-  let stocks = filterStocks(allStocks, windowDays).map(enrich);
+  let stocks = filterStocks(allStocks).map(enrich);
 
   // Weekly mode: filter chart days to Thursdays only
   if (weekly) {
@@ -65,7 +79,7 @@ function applyAndRender() {
   const volHeader = weekly ? 'Volume (weekly · Thu)' : 'Volume (60d)';
 
   document.getElementById('count').textContent = `${stocks.length} shown`;
-  render(stocks, document.getElementById('results'), volHeader, sortState);
+  render(stocks, document.getElementById('results'), volHeader, sortState, weekly);
 }
 
 // Called by renderer header clicks
@@ -81,19 +95,8 @@ window.onSortClick = (col) => {
 
 (async () => {
   const statusEl = document.getElementById('status');
-  const selectEl = document.getElementById('window-select');
   const viewEl   = document.getElementById('view-select');
   const volInput = document.getElementById('min-volume');
-
-  const params = new URLSearchParams(location.search);
-  const savedDays = params.get('days');
-  if (savedDays && ['3', '4', '5'].includes(savedDays)) selectEl.value = savedDays;
-
-  selectEl.addEventListener('change', () => {
-    const url = new URL(location.href);
-    url.searchParams.set('days', selectEl.value);
-    location.href = url.toString();
-  });
 
   viewEl.addEventListener('change', applyAndRender);
 

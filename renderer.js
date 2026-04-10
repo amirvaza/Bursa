@@ -69,27 +69,43 @@ function lineChart(values, stroke) {
 /**
  * Render sorted stocks into the given DOM container.
  *
- * @param {Array<{symbol: string, avgVolChangePct: number, avgPriceChangePct: number, days: Array<{date: string, close: number, volume: number}>}>} stocks
+ * @param {Array} stocks  Enriched stock objects with volChanges[], weeklyChg, totalChg, etc.
  * @param {HTMLElement} container
  * @param {string} volHeader
+ * @param {{ col: string, dir: string }} sortState
+ * @param {boolean} weekly  Whether weekly (Thu) view is active
  */
-function render(stocks, container, volHeader = 'Volume (60d)', sortState = { col: 'avgVolChangePct', dir: 'desc' }) {
+function render(stocks, container, volHeader = 'Volume (60d)', sortState = { col: 'volChg0', dir: 'desc' }, weekly = false) {
   if (stocks.length === 0) {
     container.innerHTML = '<p class="empty">No stocks match the current filters.</p>';
     return;
   }
 
+  // Collect vol change date headers from first stock that has them
+  const volChangeDates = (stocks.find(s => s.volChanges && s.volChanges.length) || { volChanges: [] })
+    .volChanges.map(v => v.date);
+
   const rows = stocks.map(stock => {
     const latest = stock.days[stock.days.length - 1];
 
-    const weekly  = fmtPct(stock.weeklyChg);
-    const total   = fmtPct(stock.totalChg);
-    const volChg  = fmtPct(stock.avgVolChangePct);
+    const weeklyFmt = fmtPct(stock.weeklyChg);
+    const totalFmt  = fmtPct(stock.totalChg);
 
     const chartColor  = stock.weeklyChg === null ? '#64748b' : stock.weeklyChg >= 0 ? '#4ade80' : '#f87171';
     const priceChart  = lineChart(stock.days.map(d => d.close),  chartColor);
     const volumeChart = lineChart(stock.days.map(d => d.volume), '#3b82f6');
+
+    // Vol 5d chart — last 5 days only
+    const last5 = stock.days.slice(-5);
+    const vol5Chart = lineChart(last5.map(d => d.volume), '#818cf8');
+
     const displaySymbol = stock.symbol.replace(/\.TA$/i, '');
+
+    // 5 individual daily vol Δ% cells
+    const volCells = (stock.volChanges || []).map(v => {
+      const f = fmtPct(v.pct);
+      return `<td class="${f.cls}">${f.text}</td>`;
+    }).join('');
 
     return `
       <tr>
@@ -97,29 +113,38 @@ function render(stocks, container, volHeader = 'Volume (60d)', sortState = { col
         <td>
           <div class="chart-cell">
             ${priceChart}
-            <span class="${weekly.cls}">${weekly.text}</span>
+            <span class="${weeklyFmt.cls}">${weeklyFmt.text}</span>
           </div>
         </td>
-        <td class="${total.cls}">${total.text}</td>
+        <td class="${totalFmt.cls}">${totalFmt.text}</td>
         <td>
           <div class="chart-cell">
             ${volumeChart}
             <span class="muted">${fmtVolume(latest.volume)}</span>
           </div>
         </td>
-        <td class="${volChg.cls}">${volChg.text}</td>
+        <td>${vol5Chart}</td>
+        ${volCells}
       </tr>`;
   }).join('');
 
-  const cols = [
-    { key: 'symbol',          label: 'Symbol' },
-    { key: 'weeklyChg',       label: 'Price · Weekly (Mon→Thu)' },
-    { key: 'totalChg',        label: 'Total Δ%' },
-    { key: 'latestVolume',    label: volHeader },
-    { key: 'avgVolChangePct', label: 'Avg Vol Δ%' },
+  const fixedCols = [
+    { key: 'symbol',       label: 'Symbol' },
+    { key: 'weeklyChg',    label: 'Price · Weekly (Mon→Thu)' },
+    { key: 'totalChg',     label: 'Total Δ%' },
+    { key: 'latestVolume', label: volHeader },
+    { key: null,           label: 'Vol (5d)' },
   ];
 
+  const volDateCols = volChangeDates.map((date, i) => ({
+    key:   `volChg${i}`,
+    label: `Vol Δ% ${date.slice(5)}`,  // show MM-DD
+  }));
+
+  const cols = [...fixedCols, ...volDateCols];
+
   const headers = cols.map(({ key, label }) => {
+    if (!key) return `<th>${label}</th>`;
     const active = sortState.col === key;
     const arrow  = active ? (sortState.dir === 'desc' ? ' ↓' : ' ↑') : '';
     const cls    = active ? ' class="th-active"' : '';
