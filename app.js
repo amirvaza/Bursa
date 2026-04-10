@@ -43,7 +43,7 @@ function enrich(stock) {
   const volChanges = computeVolChanges(stock.days);
   const extra = {};
   volChanges.forEach((v, i) => { extra[`volChg${i}`] = v.pct; });
-  return { ...stock, weeklyChg, totalChg, latestVolume: latest.volume, volChanges, ...extra };
+  return { ...stock, weeklyChg, totalChg, latestVolume: latest.volume, latestClose: latest.close, volChanges, ...extra };
 }
 
 function sortBy(stocks) {

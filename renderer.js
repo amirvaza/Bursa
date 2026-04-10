@@ -110,6 +110,7 @@ function render(stocks, container, volHeader = 'Volume (60d)', sortState = { col
     return `
       <tr>
         <td><strong>${displaySymbol}</strong></td>
+        <td class="muted">${latest.close.toFixed(2)}</td>
         <td>
           <div class="chart-cell">
             ${priceChart}
@@ -130,6 +131,7 @@ function render(stocks, container, volHeader = 'Volume (60d)', sortState = { col
 
   const fixedCols = [
     { key: 'symbol',       label: 'Symbol' },
+    { key: 'latestClose',  label: 'Price' },
     { key: 'weeklyChg',    label: 'Price · Weekly (Mon→Thu)' },
     { key: 'totalChg',     label: 'Total Δ%' },
     { key: 'latestVolume', label: volHeader },
