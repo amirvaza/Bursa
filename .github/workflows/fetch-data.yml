@@ -53,8 +53,12 @@ jobs:
           }
 
           async function main() {
-            const results = await Promise.all(symbols.map(fetchSymbol));
-            const all = results.filter(Boolean);
+            const all = [];
+            for (const symbol of symbols) {
+              const result = await fetchSymbol(symbol);
+              if (result) all.push(result);
+              await new Promise(r => setTimeout(r, 300));
+            }
             fs.mkdirSync('data', { recursive: true });
             fs.writeFileSync('data/latest.json', JSON.stringify({
               fetched_at: new Date().toISOString(),
