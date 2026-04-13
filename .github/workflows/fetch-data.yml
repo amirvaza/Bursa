@@ -69,17 +69,45 @@ jobs:
           function applyItems(stockMap, dateStr, items) {
             for (const item of items) {
               const id = item.Id;
-              const symbol = item.Name || id;
-              const isin = item.Id ? String(parseInt(item.Id, 10)) : null;
-              const close = item.LastRate;
-              const volume = item.OverallTurnOverUnits || 0;
-              if (close == null) continue;
-              if (!stockMap[id]) stockMap[id] = { id, name: symbol, isin, days: [] };
-              if (isin && !stockMap[id].isin) stockMap[id].isin = isin;
+              if (!id || item.LastRate == null) continue;
+
+              const isin = String(parseInt(id, 10));
+
+              // Stock-level metadata (stored once, refreshed each run)
+              const meta = {
+                id,
+                isin,
+                isinId:         item.ISIN_ID       || null,
+                name:           item.Name          || id,
+                companyId:      item.CompanyId     || null,
+                sector:         item.FullBranch    || null,
+                sectorPrimary:  item.Classification_Primary   || null,
+                sectorSecondary:item.Classification_Secondary || null,
+                type:           item.Type          || null,
+                subType:        item.SecuritySubType || null,
+                longName:       item.SecurityLongName || item.LongName || null,
+              };
+
+              if (!stockMap[id]) stockMap[id] = { ...meta, days: [] };
+              else Object.assign(stockMap[id], meta);
+
+              // Daily snapshot — everything that changes day to day
               if (!stockMap[id].days.some(day => day.date === dateStr)) {
-                stockMap[id].days.push({ date: dateStr, close, volume });
+                stockMap[id].days.push({
+                  date: dateStr,
+                  close:     item.LastRate,
+                  open:      item.OpenRate      || null,
+                  high:      item.HighRate      || null,
+                  low:       item.LowRate       || null,
+                  change:    item.Change        || null,
+                  volume:    item.OverallTurnOverUnits || 0,
+                  turnover:  item.TurnOverValueShekel  || null,
+                  deals:     item.DealsNo       || null,
+                  marketCap: item.MarketValue   || null,
+                });
                 stockMap[id].days.sort((a, b) => a.date.localeCompare(b.date));
               }
+
               if (stockMap[id].days.length > 60) {
                 stockMap[id].days = stockMap[id].days.slice(-60);
               }
