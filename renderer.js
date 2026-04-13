@@ -99,7 +99,7 @@ function render(stocks, container, volHeader = 'Volume (60d)', sortState = { col
     const last5 = stock.days.slice(-5);
     const vol5Chart = lineChart(last5.map(d => d.volume), '#818cf8');
 
-    const displaySymbol = stock.name || stock.symbol;
+    const displaySymbol = stock.name || stock.id;
     const bizportalUrl = stock.isin
       ? `https://www.bizportal.co.il/capitalmarket/quote/generalview/${stock.isin}`
       : null;
@@ -135,7 +135,7 @@ function render(stocks, container, volHeader = 'Volume (60d)', sortState = { col
   }).join('');
 
   const fixedCols = [
-    { key: 'symbol',       label: 'Symbol' },
+    { key: 'name',         label: 'Name' },
     { key: 'latestClose',  label: 'Price' },
     { key: 'weeklyChg',    label: 'Price · Weekly (Mon→Thu)' },
     { key: 'totalChg',     label: 'Total Δ%' },

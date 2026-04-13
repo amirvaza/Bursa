@@ -50,7 +50,7 @@ function sortBy(stocks) {
   const { col, dir } = sortState;
   const mult = dir === 'desc' ? -1 : 1;
   return [...stocks].sort((a, b) => {
-    if (col === 'symbol') return mult * a.symbol.localeCompare(b.symbol);
+    if (col === 'name') return mult * (a.name || '').localeCompare(b.name || '');
     const av = a[col] ?? (dir === 'desc' ? -Infinity : Infinity);
     const bv = b[col] ?? (dir === 'desc' ? -Infinity : Infinity);
     return mult * (av - bv);
