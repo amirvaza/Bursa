@@ -74,7 +74,7 @@ jobs:
               const close = item.LastRate;
               const volume = item.OverallTurnOverUnits || 0;
               if (close == null) continue;
-              if (!stockMap[id]) stockMap[id] = { id, symbol, isin, days: [] };
+              if (!stockMap[id]) stockMap[id] = { id, symbol, name: symbol, isin, days: [] };
               if (isin && !stockMap[id].isin) stockMap[id].isin = isin;
               if (!stockMap[id].days.some(day => day.date === dateStr)) {
                 stockMap[id].days.push({ date: dateStr, close, volume });

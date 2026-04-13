@@ -99,7 +99,7 @@ function render(stocks, container, volHeader = 'Volume (60d)', sortState = { col
     const last5 = stock.days.slice(-5);
     const vol5Chart = lineChart(last5.map(d => d.volume), '#818cf8');
 
-    const displaySymbol = stock.symbol;
+    const displaySymbol = stock.name || stock.symbol;
     const bizportalUrl = stock.isin
       ? `https://www.bizportal.co.il/capitalmarket/quote/generalview/${stock.isin}`
       : null;
