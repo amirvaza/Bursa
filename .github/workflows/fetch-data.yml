@@ -23,7 +23,7 @@ jobs:
           node -e "
           const fs = require('fs');
 
-          async function fetchPage(pageNum) {
+          async function fetchPage(pageNum, dType) {
             const res = await fetch('https://api.tase.co.il/api/security/securitiesmarketdata', {
               method: 'POST',
               headers: {
@@ -33,10 +33,45 @@ jobs:
                 'referer': 'https://market.tase.co.il/',
                 'user-agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36'
               },
-              body: JSON.stringify({ dType: '1', cl1: '1', cl2: '0', TotalRec: 550, pageNum, lang: '1' })
+              body: JSON.stringify({ dType, cl1: '1', cl2: '0', TotalRec: 550, pageNum, lang: '1' })
             });
             if (!res.ok) throw new Error('TASE page ' + pageNum + ' failed: ' + res.status);
             return res.json();
+          }
+
+          async function fetchAllPages(dType) {
+            const first = await fetchPage(1, dType);
+            const pageSize = first.Items.length;
+            const totalPages = Math.ceil(first.TotalRec / pageSize);
+            const rawDate = first.TradeDate;
+            const [d, m, y] = rawDate.split('/');
+            const dateStr = y + '-' + m + '-' + d;
+            console.log('dType=' + dType + ' TradeDate: ' + dateStr + ' | Pages: ' + totalPages);
+            const allItems = [...first.Items];
+            for (let page = 2; page <= totalPages; page++) {
+              const data = await fetchPage(page, dType);
+              allItems.push(...data.Items);
+              await new Promise(r => setTimeout(r, 200));
+            }
+            return { dateStr, items: allItems };
+          }
+
+          function applyItems(stockMap, dateStr, items) {
+            for (const item of items) {
+              const id = item.Id;
+              const symbol = item.Name || id;
+              const close = item.LastRate;
+              const volume = item.OverallTurnOverUnits || 0;
+              if (close == null) continue;
+              if (!stockMap[id]) stockMap[id] = { id, symbol, days: [] };
+              if (!stockMap[id].days.some(day => day.date === dateStr)) {
+                stockMap[id].days.push({ date: dateStr, close, volume });
+                stockMap[id].days.sort((a, b) => a.date.localeCompare(b.date));
+              }
+              if (stockMap[id].days.length > 60) {
+                stockMap[id].days = stockMap[id].days.slice(-60);
+              }
+            }
           }
 
           async function main() {
@@ -50,53 +85,28 @@ jobs:
               if (s.id) stockMap[s.id] = s;
             }
 
-            // Fetch page 1 to get TradeDate and total count
-            const first = await fetchPage(1);
-            const rawDate = first.TradeDate; // format: DD/MM/YYYY
-            const [d, m, y] = rawDate.split('/');
-            const dateStr = y + '-' + m + '-' + d;
+            const isFirstRun = Object.keys(stockMap).length === 0;
 
-            // Skip if this trade date is already recorded
+            // On first run, bootstrap with previous trading day (dType=2) first
+            if (isFirstRun) {
+              console.log('First run — bootstrapping with previous trading day');
+              const prev = await fetchAllPages('2');
+              applyItems(stockMap, prev.dateStr, prev.items);
+              console.log('Bootstrapped ' + prev.items.length + ' items for ' + prev.dateStr);
+            }
+
+            // Fetch today (dType=1)
+            const today = await fetchAllPages('1');
+
+            // Skip if today already recorded
             const sample = Object.values(stockMap)[0];
-            if (sample && sample.days && sample.days.some(day => day.date === dateStr)) {
-              console.log('TradeDate ' + dateStr + ' already in data — skipping');
+            if (!isFirstRun && sample && sample.days && sample.days.some(day => day.date === today.dateStr)) {
+              console.log('TradeDate ' + today.dateStr + ' already in data — skipping');
               process.exit(0);
             }
 
-            const pageSize = first.Items.length;
-            const totalPages = Math.ceil(first.TotalRec / pageSize);
-            console.log('TradeDate: ' + dateStr + ' | Total: ' + first.TotalRec + ' | Pages: ' + totalPages);
-
-            // Fetch remaining pages
-            const allItems = [...first.Items];
-            for (let page = 2; page <= totalPages; page++) {
-              const data = await fetchPage(page);
-              allItems.push(...data.Items);
-              await new Promise(r => setTimeout(r, 200));
-            }
-            console.log('Fetched ' + allItems.length + ' items');
-
-            // Append today data point to each stock
-            for (const item of allItems) {
-              const id = item.Id;
-              const symbol = item.Name || id;
-              const close = item.LastRate;
-              const volume = item.OverallTurnOverUnits || 0;
-              if (close == null) continue;
-
-              if (!stockMap[id]) stockMap[id] = { id, symbol, days: [] };
-
-              // Idempotent: only add if date not already present
-              if (!stockMap[id].days.some(day => day.date === dateStr)) {
-                stockMap[id].days.push({ date: dateStr, close, volume });
-                stockMap[id].days.sort((a, b) => a.date.localeCompare(b.date));
-              }
-
-              // Keep last 60 days
-              if (stockMap[id].days.length > 60) {
-                stockMap[id].days = stockMap[id].days.slice(-60);
-              }
-            }
+            applyItems(stockMap, today.dateStr, today.items);
+            console.log('Applied ' + today.items.length + ' items for ' + today.dateStr);
 
             const stocks = Object.values(stockMap).filter(s => s.days.length > 0);
             fs.mkdirSync('data', { recursive: true });
