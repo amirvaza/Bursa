@@ -70,7 +70,7 @@ jobs:
             for (const item of items) {
               const id = item.Id;
               const symbol = item.Name || id;
-              const isin = item.ISIN || null;
+              const isin = item.Id ? String(parseInt(item.Id, 10)) : null;
               const close = item.LastRate;
               const volume = item.OverallTurnOverUnits || 0;
               if (close == null) continue;
