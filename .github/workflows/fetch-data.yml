@@ -43,7 +43,7 @@ jobs:
                 'sec-fetch-site': 'same-site',
                 'user-agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36'
               },
-              body: JSON.stringify({ dType, cl1: '1', cl2: '0', TotalRec: 550, pageNum, lang: '1' })
+              body: JSON.stringify({ dType, cl1: '1', cl2: '0', TotalRec: 550, pageNum, lang: '0' })
             });
             if (!res.ok) throw new Error('TASE page ' + pageNum + ' failed: ' + res.status);
             return res.json();
