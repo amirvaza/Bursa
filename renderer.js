@@ -100,6 +100,9 @@ function render(stocks, container, volHeader = 'Volume (60d)', sortState = { col
     const vol5Chart = lineChart(last5.map(d => d.volume), '#818cf8');
 
     const displaySymbol = stock.symbol.replace(/\.TA$/i, '').slice(0, 16);
+    const bizportalUrl = stock.isin
+      ? `https://www.bizportal.co.il/capitalmarket/quote/generalview/${stock.isin}`
+      : null;
 
     // 5 individual daily vol Δ% cells
     const volCells = (stock.volChanges || []).map(v => {
@@ -109,7 +112,9 @@ function render(stocks, container, volHeader = 'Volume (60d)', sortState = { col
 
     return `
       <tr>
-        <td><strong>${displaySymbol}</strong></td>
+        <td><strong>${bizportalUrl
+          ? `<a href="${bizportalUrl}" target="_blank" rel="noopener" class="symbol-link">${displaySymbol}</a>`
+          : displaySymbol}</strong></td>
         <td class="muted">${latest.close.toFixed(2)}</td>
         <td>
           <div class="chart-cell">
