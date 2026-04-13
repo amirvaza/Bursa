@@ -4,7 +4,7 @@ on:
   push:
     branches: [main]
   schedule:
-    - cron: '30 16 * * 1-5'  # 16:30 UTC = 18:30 Israel time, 1h after TASE closes
+    - cron: '30 16 * * 1-5'  # 16:30 UTC = 18:30 Israel time, 1h after TASE closes (Mon-Fri)
   workflow_dispatch:          # allow manual trigger from GitHub Actions tab
 
 permissions:
@@ -18,53 +18,93 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Fetch TASE market data from Yahoo Finance
+      - name: Fetch TASE market data
         run: |
           node -e "
           const fs = require('fs');
 
-          const symbols = JSON.parse(fs.readFileSync('stocks.json', 'utf8')).symbols;
-
-          async function fetchSymbol(symbol) {
-            const url = 'https://query1.finance.yahoo.com/v8/finance/chart/' + symbol + '?range=60d&interval=1d';
-            try {
-              const res = await fetch(url, {
-                headers: { 'User-Agent': 'Mozilla/5.0', 'Accept': 'application/json' }
-              });
-              if (!res.ok) { console.log('SKIP', symbol, res.status); return null; }
-              const json = await res.json();
-              const result = json?.chart?.result?.[0];
-              if (!result) return null;
-              const timestamps = result.timestamp ?? [];
-              const quote = result.indicators?.quote?.[0] ?? {};
-              const closes = quote.close ?? [];
-              const volumes = quote.volume ?? [];
-              const days = [];
-              for (let i = 0; i < timestamps.length; i++) {
-                if (closes[i] == null || volumes[i] == null) continue;
-                const date = new Date(timestamps[i] * 1000).toISOString().slice(0, 10);
-                days.push({ date, close: closes[i], volume: volumes[i] });
-              }
-              return days.length > 0 ? { symbol, days } : null;
-            } catch (e) {
-              console.log('SKIP', symbol, e.message);
-              return null;
-            }
+          async function fetchPage(pageNum) {
+            const res = await fetch('https://api.tase.co.il/api/security/securitiesmarketdata', {
+              method: 'POST',
+              headers: {
+                'accept': 'application/json, text/plain, */*',
+                'content-type': 'application/json;charset=UTF-8',
+                'origin': 'https://market.tase.co.il',
+                'referer': 'https://market.tase.co.il/',
+                'user-agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36'
+              },
+              body: JSON.stringify({ dType: '1', cl1: '1', cl2: '0', TotalRec: 550, pageNum, lang: '1' })
+            });
+            if (!res.ok) throw new Error('TASE page ' + pageNum + ' failed: ' + res.status);
+            return res.json();
           }
 
           async function main() {
-            const all = [];
-            for (const symbol of symbols) {
-              const result = await fetchSymbol(symbol);
-              if (result) all.push(result);
-              await new Promise(r => setTimeout(r, 300));
+            // Load existing accumulated data
+            let existing = { stocks: [] };
+            try { existing = JSON.parse(fs.readFileSync('data/latest.json', 'utf8')); } catch(e) {}
+
+            // Build map: id -> stock
+            const stockMap = {};
+            for (const s of existing.stocks || []) {
+              if (s.id) stockMap[s.id] = s;
             }
+
+            // Fetch page 1 to get TradeDate and total count
+            const first = await fetchPage(1);
+            const rawDate = first.TradeDate; // format: DD/MM/YYYY
+            const [d, m, y] = rawDate.split('/');
+            const dateStr = y + '-' + m + '-' + d;
+
+            // Skip if this trade date is already recorded
+            const sample = Object.values(stockMap)[0];
+            if (sample && sample.days && sample.days.some(day => day.date === dateStr)) {
+              console.log('TradeDate ' + dateStr + ' already in data — skipping');
+              process.exit(0);
+            }
+
+            const pageSize = first.Items.length;
+            const totalPages = Math.ceil(first.TotalRec / pageSize);
+            console.log('TradeDate: ' + dateStr + ' | Total: ' + first.TotalRec + ' | Pages: ' + totalPages);
+
+            // Fetch remaining pages
+            const allItems = [...first.Items];
+            for (let page = 2; page <= totalPages; page++) {
+              const data = await fetchPage(page);
+              allItems.push(...data.Items);
+              await new Promise(r => setTimeout(r, 200));
+            }
+            console.log('Fetched ' + allItems.length + ' items');
+
+            // Append today data point to each stock
+            for (const item of allItems) {
+              const id = item.Id;
+              const symbol = item.Name || id;
+              const close = item.LastRate;
+              const volume = item.OverallTurnOverUnits || 0;
+              if (close == null) continue;
+
+              if (!stockMap[id]) stockMap[id] = { id, symbol, days: [] };
+
+              // Idempotent: only add if date not already present
+              if (!stockMap[id].days.some(day => day.date === dateStr)) {
+                stockMap[id].days.push({ date: dateStr, close, volume });
+                stockMap[id].days.sort((a, b) => a.date.localeCompare(b.date));
+              }
+
+              // Keep last 60 days
+              if (stockMap[id].days.length > 60) {
+                stockMap[id].days = stockMap[id].days.slice(-60);
+              }
+            }
+
+            const stocks = Object.values(stockMap).filter(s => s.days.length > 0);
             fs.mkdirSync('data', { recursive: true });
             fs.writeFileSync('data/latest.json', JSON.stringify({
               fetched_at: new Date().toISOString(),
-              stocks: all
+              stocks
             }));
-            console.log('Wrote ' + all.length + ' stocks to data/latest.json');
+            console.log('Wrote ' + stocks.length + ' stocks to data/latest.json');
           }
 
           main().catch(e => { console.error(e); process.exit(1); });

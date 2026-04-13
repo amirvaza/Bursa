@@ -99,7 +99,7 @@ function render(stocks, container, volHeader = 'Volume (60d)', sortState = { col
     const last5 = stock.days.slice(-5);
     const vol5Chart = lineChart(last5.map(d => d.volume), '#818cf8');
 
-    const displaySymbol = stock.symbol.replace(/\.TA$/i, '');
+    const displaySymbol = stock.symbol.replace(/\.TA$/i, '').slice(0, 16);
 
     // 5 individual daily vol Δ% cells
     const volCells = (stock.volChanges || []).map(v => {
