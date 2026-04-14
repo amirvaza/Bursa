@@ -109,3 +109,23 @@ tr:hover td { background: #141920; }
   padding: 48px 0;
   font-size: 0.9rem;
 }
+
+[data-tooltip] { position: relative; }
+[data-tooltip]::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  bottom: calc(100% + 4px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: #1e2533;
+  color: #e2e8f0;
+  border: 1px solid #334155;
+  border-radius: 5px;
+  padding: 4px 8px;
+  font-size: 0.75rem;
+  white-space: pre;
+  pointer-events: none;
+  opacity: 0;
+  z-index: 100;
+}
+[data-tooltip]:hover::after { opacity: 1; }
