@@ -107,7 +107,8 @@ function render(stocks, container, volHeader = 'Volume (60d)', sortState = { col
     // 5 individual daily vol Δ% cells
     const volCells = (stock.volChanges || []).map(v => {
       const f = fmtPct(v.pct);
-      return `<td class="${f.cls}">${f.text}</td>`;
+      const title = `${v.date}: ${fmtVolume(v.volume)}  (prev: ${fmtVolume(v.prevVolume)})`;
+      return `<td class="${f.cls}" title="${title}">${f.text}</td>`;
     }).join('');
 
     return `
@@ -115,21 +116,21 @@ function render(stocks, container, volHeader = 'Volume (60d)', sortState = { col
         <td><strong>${bizportalUrl
           ? `<a href="${bizportalUrl}" target="_blank" rel="noopener" class="symbol-link">${displaySymbol}</a>`
           : displaySymbol}</strong></td>
-        <td class="muted">${latest.close.toFixed(2)}</td>
+        <td class="muted" title="${latest.close}">${latest.close.toFixed(2)}</td>
         <td>
           <div class="chart-cell">
             ${priceChart}
             <span class="${weeklyFmt.cls}">${weeklyFmt.text}</span>
           </div>
         </td>
-        <td class="${totalFmt.cls}">${totalFmt.text}</td>
-        <td>
+        <td class="${totalFmt.cls}" title="From ${stock.days[0].close.toFixed(2)} (${stock.days[0].date}) to ${latest.close.toFixed(2)} (${latest.date})">${totalFmt.text}</td>
+        <td title="Latest volume: ${latest.volume.toLocaleString()}">
           <div class="chart-cell">
             ${volumeChart}
             <span class="muted">${fmtVolume(latest.volume)}</span>
           </div>
         </td>
-        <td>${vol5Chart}</td>
+        <td title="${stock.days.slice(-5).map(d => d.date.slice(5) + ': ' + fmtVolume(d.volume)).join('\n')}">${vol5Chart}</td>
         ${volCells}
       </tr>`;
   }).join('');

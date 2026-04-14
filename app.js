@@ -27,7 +27,7 @@ function computeVolChanges(days) {
     const cur  = days[i];
     const prev = days[i - 1];
     const pct  = prev.volume > 0 ? ((cur.volume - prev.volume) / prev.volume * 100) : null;
-    result.push({ date: cur.date, pct });
+    result.push({ date: cur.date, pct, volume: cur.volume, prevVolume: prev.volume });
   }
   return result;
 }
