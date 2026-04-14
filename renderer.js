@@ -83,7 +83,7 @@ function render(stocks, container, volHeader = 'Volume (60d)', sortState = { col
 
   // Collect vol change date headers from first stock that has them
   const volChangeDates = (stocks.find(s => s.volChanges && s.volChanges.length) || { volChanges: [] })
-    .volChanges.map(v => v.date);
+    .volChanges.map(v => v.date).reverse();
 
   const rows = stocks.map(stock => {
     const latest = stock.days[stock.days.length - 1];
@@ -104,8 +104,8 @@ function render(stocks, container, volHeader = 'Volume (60d)', sortState = { col
       ? `https://www.bizportal.co.il/capitalmarket/quote/generalview/${stock.isin}`
       : null;
 
-    // 5 individual daily vol Δ% cells
-    const volCells = (stock.volChanges || []).map(v => {
+    // 5 individual daily vol Δ% cells — oldest first (left to right)
+    const volCells = [...(stock.volChanges || [])].reverse().map(v => {
       const f = fmtPct(v.pct);
       const title = `${v.date}: ${fmtVolume(v.volume)}  (prev: ${fmtVolume(v.prevVolume)})`;
       return `<td class="${f.cls}" data-tooltip="${title}">${f.text}</td>`;
@@ -145,8 +145,8 @@ function render(stocks, container, volHeader = 'Volume (60d)', sortState = { col
   ];
 
   const volDateCols = volChangeDates.map((date, i) => ({
-    key:   `volChg${i}`,
-    label: `Vol Δ% ${date.slice(5)}`,  // show MM-DD
+    key:   `volChg${volChangeDates.length - 1 - i}`,  // volChg0 = most recent, keep sort keys intact
+    label: `Vol Δ% ${date.slice(5)}`,
   }));
 
   const cols = [...fixedCols, ...volDateCols];
