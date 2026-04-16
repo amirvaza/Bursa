@@ -125,28 +125,31 @@ jobs:
               if (s.id) stockMap[s.id] = s;
             }
 
-            const isFirstRun = Object.keys(stockMap).length === 0;
-
-            // On first run, bootstrap with previous trading day (dType=2) first
-            if (isFirstRun) {
-              console.log('First run — bootstrapping with previous trading day');
-              const prev = await fetchAllPages('2');
+            // Always check previous trading day (dType=2) — catches missed scheduled runs
+            const prev = await fetchAllPages('2');
+            const sample = Object.values(stockMap)[0];
+            const prevMissing = !sample || !sample.days || !sample.days.some(day => day.date === prev.dateStr);
+            if (prevMissing) {
+              console.log('Previous trading day ' + prev.dateStr + ' missing — backfilling');
               applyItems(stockMap, prev.dateStr, prev.items);
-              console.log('Bootstrapped ' + prev.items.length + ' items for ' + prev.dateStr);
+            } else {
+              console.log('Previous trading day ' + prev.dateStr + ' already in data');
             }
 
             // Fetch today (dType=1)
             const today = await fetchAllPages('1');
 
-            // Skip if today already recorded
-            const sample = Object.values(stockMap)[0];
-            if (!isFirstRun && sample && sample.days && sample.days.some(day => day.date === today.dateStr)) {
+            // Skip writing if today already recorded and no backfill was needed
+            const todayExists = sample && sample.days && sample.days.some(day => day.date === today.dateStr);
+            if (todayExists && !prevMissing) {
               console.log('TradeDate ' + today.dateStr + ' already in data — skipping');
               process.exit(0);
             }
 
-            applyItems(stockMap, today.dateStr, today.items);
-            console.log('Applied ' + today.items.length + ' items for ' + today.dateStr);
+            if (!todayExists) {
+              applyItems(stockMap, today.dateStr, today.items);
+              console.log('Applied ' + today.items.length + ' items for ' + today.dateStr);
+            }
 
             const stocks = Object.values(stockMap).filter(s => s.days.length > 0);
             fs.mkdirSync('data', { recursive: true });
